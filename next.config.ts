@@ -5,7 +5,7 @@ const withPWA = withPWAInit({
   dest: "public",
   register: true,
   skipWaiting: true,
-  disable: true, // DISABLE COMPLETELY untuk testing
+  disable: false, // PWA enabled
   // Exclude auth-related pages from caching to prevent session conflicts
   runtimeCaching: [
     {
