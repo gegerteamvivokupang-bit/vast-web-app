@@ -1,6 +1,7 @@
 'use client';
 
 import { AuthProvider } from '@/lib/auth-context';
+import { DebugOverlay } from '@/components/debug-overlay';
 import { ReactNode, useEffect } from 'react';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -26,5 +27,10 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      {children}
+      <DebugOverlay />
+    </AuthProvider>
+  );
 }
