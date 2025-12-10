@@ -7,35 +7,6 @@ const withPWA = withPWAInit({
   skipWaiting: true,
   disable: false, // PWA enabled
   // Exclude auth-related pages from caching to prevent session conflicts
-  runtimeCaching: [
-    {
-      // CRITICAL: Don't cache Supabase API calls
-      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-      handler: "NetworkOnly" as const,
-    },
-    {
-      // Don't cache auth pages - always fetch from network
-      urlPattern: /^\/(login|dashboard|promoter)(\/.*)?$/,
-      handler: "NetworkOnly" as const,
-    },
-    {
-      // Don't cache API routes
-      urlPattern: /^\/api\/.*/,
-      handler: "NetworkOnly" as const,
-    },
-    {
-      // Cache static assets only
-      urlPattern: /\.(?:js|css|woff|woff2|png|jpg|jpeg|svg|gif|ico)$/,
-      handler: "StaleWhileRevalidate" as const,
-      options: {
-        cacheName: "static-assets",
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 60 * 60 * 24, // 24 hours
-        },
-      },
-    },
-  ],
 });
 
 const nextConfig: NextConfig = {

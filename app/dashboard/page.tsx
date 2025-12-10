@@ -65,6 +65,27 @@ interface VastApplicationRow {
   created_at: string;
 }
 
+// Interface untuk data yang dikembalikan dari Supabase
+interface RawVastApplicationData {
+  id: string;
+  status_pengajuan: VastStatus;
+  promoter_name: string | null;
+  customer_name: string | null;
+  stores: { area_detail: string | null }[]; // Array of objects with area_detail
+  sale_date: string | null;
+  created_at: string;
+}
+
+// Interface untuk data detail vast (tidak termasuk sale_date)
+interface RawVastDetailData {
+  id: string;
+  status_pengajuan: VastStatus;
+  promoter_name: string | null;
+  customer_name: string | null;
+  stores: { name: string | null; area_detail: string | null }[]; // Array of objects with name and area_detail
+  created_at: string;
+}
+
 interface TargetRow {
   target_value: number | null;
 }
@@ -191,8 +212,32 @@ export default function DashboardPage() {
         };
       };
 
-      const filteredVastToday = filterVast((vastTodayResult.data || []) as VastApplicationRow[]);
-      const filteredVastMonth = filterVast((vastMonthResult.data || []) as VastApplicationRow[]);
+      // Transformasi data dari Supabase ke format yang sesuai dengan interface VastApplicationRow
+      const transformVastData = (data: RawVastApplicationData[]): VastApplicationRow[] => {
+        return data.map(item => ({
+          ...item,
+          stores: item.stores && item.stores.length > 0
+            ? { name: null, area_detail: item.stores[0].area_detail }
+            : null
+        }));
+      };
+
+      // Transformasi data detail dari Supabase ke format yang sesuai dengan interface VastApplicationRow
+      const transformVastDetailData = (data: RawVastDetailData[]): VastApplicationRow[] => {
+        return data.map(item => ({
+          ...item,
+          sale_date: null, // Tambahkan sale_date sebagai null karena tidak ada di data detail
+          stores: item.stores && item.stores.length > 0
+            ? { name: item.stores[0].name, area_detail: item.stores[0].area_detail }
+            : null
+        }));
+      };
+
+      const transformedVastToday = transformVastData((vastTodayResult.data || []) as RawVastApplicationData[]);
+      const transformedVastMonth = transformVastData((vastMonthResult.data || []) as RawVastApplicationData[]);
+
+      const filteredVastToday = filterVast(transformedVastToday);
+      const filteredVastMonth = filterVast(transformedVastMonth);
 
       setTodayStats(calcStats((salesTodayResult.data || []) as SalesWithDetailsRow[], filteredVastToday));
       setMonthStats(calcStats((salesMonthResult.data || []) as SalesWithDetailsRow[], filteredVastMonth));
@@ -216,7 +261,8 @@ export default function DashboardPage() {
         };
       });
 
-      const filteredVastDetail = filterVast((todayVastDetailResult.data || []) as VastApplicationRow[]);
+      const transformedVastDetail = transformVastDetailData((todayVastDetailResult.data || []) as RawVastDetailData[]);
+      const filteredVastDetail = filterVast(transformedVastDetail);
       const vastActivities: TodayActivity[] = filteredVastDetail.map((v) => {
         const createdAt = new Date(v.created_at);
         const witaTime = new Date(createdAt.getTime() + (8 * 60 * 60 * 1000)); // UTC+8

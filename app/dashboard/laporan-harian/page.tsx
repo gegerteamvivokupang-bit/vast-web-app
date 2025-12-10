@@ -50,6 +50,18 @@ interface VastApplicationRow {
   promoters: VastPromoterRow | null | VastPromoterRow[];
 }
 
+// Interface untuk data yang dikembalikan dari Supabase
+interface RawVastApplicationData {
+  id: string;
+  customer_name: string | null;
+  status_pengajuan: VastStatus;
+  promoter_name: string | null;
+  store_id: string | null;
+  sale_date: string | null;
+  stores: VastStoreRow[]; // Array of store objects
+  promoters: VastPromoterRow[]; // Array of promoter objects
+}
+
 interface PromoterRow {
   id: string;
   name: string;
@@ -218,10 +230,10 @@ export default function LaporanHarianPage() {
     }
 
     // Transform vast data to match Sale interface
-    const vastSales: Sale[] = (vastResult.data || []).map((v: VastApplicationRow) => {
-      const storeData = Array.isArray(v.stores) ? v.stores[0] : v.stores;
-      const promoterData = Array.isArray(v.promoters) ? v.promoters[0] : v.promoters;
-      
+    const vastSales: Sale[] = ((vastResult.data || []) as RawVastApplicationData[]).map((v) => {
+      const storeData = v.stores && v.stores.length > 0 ? v.stores[0] : null;
+      const promoterData = v.promoters && v.promoters.length > 0 ? v.promoters[0] : null;
+
       // Map status
       const status = v.status_pengajuan === 'ACC' ? 'ACC'
         : v.status_pengajuan === 'Belum disetujui' ? 'Reject'
