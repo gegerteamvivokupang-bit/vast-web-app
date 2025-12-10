@@ -54,27 +54,10 @@ export default function DashboardLayout({
 
   if (loading || !user || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="text-center max-w-md w-full">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-800 font-semibold">Loading...</p>
-
-          {/* Debug Info */}
-          <div className="mt-6 bg-black text-green-400 p-4 rounded-lg text-left font-mono text-xs max-h-60 overflow-auto">
-            <div className="font-bold text-white mb-2">Debug Log:</div>
-            {debugInfo.length === 0 ? (
-              <div className="text-gray-500">Initializing...</div>
-            ) : (
-              debugInfo.map((log, i) => (
-                <div key={i} className="mb-1">
-                  {log}
-                </div>
-              ))
-            )}
-            <div className="mt-2 text-yellow-400">
-              Loading: {loading ? 'YES' : 'NO'} | User: {user ? 'YES' : 'NO'} | Profile: {profile ? 'YES' : 'NO'}
-            </div>
-          </div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
