@@ -91,16 +91,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const initializeAuth = async () => {
+      console.log('[Auth] Starting auth initialization...');
       try {
         // Get current session from Supabase - NO timeout, NO race conditions
         // Trust Supabase's built-in session management
+        console.log('[Auth] Fetching session from Supabase...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[Auth] Session fetched:', session ? 'exists' : 'none', error ? `error: ${error.message}` : '');
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          console.log('[Auth] Component unmounted, aborting');
+          return;
+        }
 
         // Only handle actual Supabase errors
         if (error) {
-          console.error('Supabase session error:', error);
+          console.error('[Auth] Supabase session error:', error);
           setUser(null);
           setProfile(null);
           setLoading(false);
@@ -109,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // No session = not logged in (this is normal, not an error)
         if (!session?.user) {
+          console.log('[Auth] No session found, user not logged in');
           setUser(null);
           setProfile(null);
           setLoading(false);
@@ -116,24 +123,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Valid session found - set user immediately
+        console.log('[Auth] Valid session found for user:', session.user.id);
         setUser(session.user);
 
         // Fetch user profile (no timeout racing)
         try {
+          console.log('[Auth] Fetching user profile...');
           const userProfile = await getUserProfile(session.user.id);
+          console.log('[Auth] Profile fetched:', userProfile ? 'success' : 'null');
           if (isMounted && userProfile) {
             setProfile(userProfile);
+          } else if (!userProfile) {
+            console.error('[Auth] Profile is null - user may not exist in user_profiles table');
           }
         } catch (error) {
-          console.error('Failed to fetch profile:', error);
+          console.error('[Auth] Failed to fetch profile:', error);
           // Don't logout on profile fetch error - user is still authenticated
         }
 
         if (isMounted) {
+          console.log('[Auth] Auth initialization complete, setting loading=false');
           setLoading(false);
         }
       } catch (error) {
-        console.error('Auth initialization failed:', error);
+        console.error('[Auth] Auth initialization failed:', error);
         // Don't clear session on unexpected errors - let Supabase handle it
         if (isMounted) {
           setLoading(false);
