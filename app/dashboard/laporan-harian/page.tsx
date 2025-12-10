@@ -46,15 +46,15 @@ interface VastApplicationRow {
   promoter_name: string | null;
   store_id: string | null;
   sale_date: string | null;
-  stores: VastStoreRow | null;
-  promoters: VastPromoterRow | null;
+  stores: VastStoreRow | null | VastStoreRow[];
+  promoters: VastPromoterRow | null | VastPromoterRow[];
 }
 
 interface PromoterRow {
   id: string;
   name: string;
   sator: string;
-  stores: VastStoreRow | null;
+  stores: VastStoreRow | null | VastStoreRow[];
 }
 
 export default function LaporanHarianPage() {
@@ -117,17 +117,6 @@ export default function LaporanHarianPage() {
       setToDate(formatDateForInput(range.to));
     }
   }, [preset]);
-
-  // Auto-fetch when initialized and filters change - with debounce
-  useEffect(() => {
-    if (!profile || !initialized) return;
-    
-    const timer = setTimeout(() => {
-      fetchSales();
-    }, 100); // Small debounce to batch state changes
-    
-    return () => clearTimeout(timer);
-  }, [profile, initialized, area, sator, fromDate, toDate, fetchSales]);
 
   const fetchSales = useCallback(async () => {
     if (!profile) return;
@@ -230,8 +219,8 @@ export default function LaporanHarianPage() {
 
     // Transform vast data to match Sale interface
     const vastSales: Sale[] = (vastResult.data || []).map((v: VastApplicationRow) => {
-      const storeData = v.stores;
-      const promoterData = v.promoters;
+      const storeData = Array.isArray(v.stores) ? v.stores[0] : v.stores;
+      const promoterData = Array.isArray(v.promoters) ? v.promoters[0] : v.promoters;
       
       // Map status
       const status = v.status_pengajuan === 'ACC' ? 'ACC'
@@ -297,15 +286,15 @@ export default function LaporanHarianPage() {
       // Filter by area for SPV
       if (profile.role === 'spv_area' && profile.area !== 'ALL') {
         filtered = filtered.filter((p) => {
-          const storeInfo = p.stores;
+          const storeInfo = Array.isArray(p.stores) ? p.stores[0] : p.stores;
           return storeInfo?.area_detail === profile.area;
         });
       }
-      
+
       // Filter by accessible areas for non-admin roles
       if (profile.role !== 'super_admin' && profile.role !== 'manager_area' && profile.role !== 'spv_area') {
         filtered = filtered.filter((p) => {
-          const storeInfo = p.stores;
+          const storeInfo = Array.isArray(p.stores) ? p.stores[0] : p.stores;
           return storeInfo && accessibleAreas.includes(storeInfo.area_detail || '');
         });
       }
@@ -315,12 +304,15 @@ export default function LaporanHarianPage() {
         filtered = filtered.filter((p) => p.sator === sator);
       }
       
-      const mapped = filtered.map((p) => ({
-        id: p.id,
-        name: p.name,
-        sator: p.sator,
-        store_name: p.stores?.name || '-',
-      }));
+      const mapped = filtered.map((p) => {
+        const storeInfo = Array.isArray(p.stores) ? p.stores[0] : p.stores;
+        return {
+          id: p.id,
+          name: p.name,
+          sator: p.sator,
+          store_name: storeInfo?.name || '-',
+        };
+      });
       setPromoters(mapped);
     }
     } catch (error) {
@@ -329,6 +321,17 @@ export default function LaporanHarianPage() {
       setLoading(false);
     }
   }, [accessibleAreas, area, fromDate, profile, sator, toDate]);
+
+  // Auto-fetch when initialized and filters change - with debounce
+  useEffect(() => {
+    if (!profile || !initialized) return;
+
+    const timer = setTimeout(() => {
+      fetchSales();
+    }, 100); // Small debounce to batch state changes
+
+    return () => clearTimeout(timer);
+  }, [profile, initialized, area, sator, fromDate, toDate, fetchSales]);
 
   const getFirstName = (fullName: string) => {
     return fullName.split(' ')[0];

@@ -19,7 +19,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
-import type { PostgrestFilterBuilder } from '@supabase/supabase-js';
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 
 interface PeriodStats {
   total: number;
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       }
 
       // Build base query filters
-      const buildFilters = (query: PostgrestFilterBuilder<Record<string, unknown>>) => {
+      const buildFilters = (query: PostgrestFilterBuilder<any, any, any, any>) => {
         if (profile.role === 'spv_area' && profile.area && profile.area !== 'ALL') {
           return query.eq('area_detail', profile.area);
         } else if (profile.role === 'sator' && promoterNames.length > 0) {
@@ -168,7 +168,7 @@ export default function DashboardPage() {
           return data.filter(v => v.stores?.area_detail === profile.area);
         }
         if (profile.role === 'sator' && promoterNames.length > 0) {
-          return data.filter(v => promoterNames.includes(v.promoter_name));
+          return data.filter(v => v.promoter_name && promoterNames.includes(v.promoter_name));
         }
         return data.filter(v => accessibleAreas.includes(v.stores?.area_detail || ''));
       };
