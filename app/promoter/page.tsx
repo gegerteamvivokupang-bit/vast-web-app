@@ -334,15 +334,19 @@ export default function PromoterDashboard() {
       console.log('Date range:', startDateStr, 'to', endDateStr);
 
       // Query 1: vast_finance_applications (form baru)
-      // Gunakan user_id dari promoter record
+      // Gunakan user_id dari promoter record ATAU promoter_name untuk data import Excel
       // Filter by sale_date untuk konsistensi dengan tabel sales
-      const { data: vastData, error: vastError } = await supabase
+      let vastQuery = supabase
         .from('vast_finance_applications')
         .select('status_pengajuan, sale_date')
-        .eq('created_by_user_id', promoter.user_id)
         .gte('sale_date', startDateStr)
         .lte('sale_date', endDateStr)
         .is('deleted_at', null);
+
+      // Filter by created_by_user_id OR promoter_name (for Excel imports)
+      vastQuery = vastQuery.or(`created_by_user_id.eq.${promoter.user_id},promoter_name.ilike.%${promoter.name}%`);
+
+      const { data: vastData, error: vastError } = await vastQuery;
       
       console.log('vastData:', vastData, 'error:', vastError);
 
@@ -439,13 +443,17 @@ export default function PromoterDashboard() {
 
       // Query 1: vast_finance_applications (form baru)
       // Filter by sale_date untuk konsistensi dengan tabel sales
-      const { data: vastData } = await supabase
+      let vastQuery2 = supabase
         .from('vast_finance_applications')
         .select('id, customer_name, customer_phone, status_pengajuan, sale_date')
-        .eq('created_by_user_id', promoter.user_id)
         .gte('sale_date', startDateStr)
         .lte('sale_date', endDateStr)
         .is('deleted_at', null);
+
+      // Filter by created_by_user_id OR promoter_name (for Excel imports)
+      vastQuery2 = vastQuery2.or(`created_by_user_id.eq.${promoter.user_id},promoter_name.ilike.%${promoter.name}%`);
+
+      const { data: vastData } = await vastQuery2;
 
       // Query 2: sales (Excel data)
       let salesQuery = supabase

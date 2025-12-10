@@ -36,7 +36,7 @@ const withPWA = withPWAInit({
       },
     },
   ],
-} as any);
+});
 
 const nextConfig: NextConfig = {
   // Use webpack explicitly (required for next-pwa)

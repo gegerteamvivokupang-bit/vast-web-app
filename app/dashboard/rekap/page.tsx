@@ -114,7 +114,7 @@ export default function RekapPage() {
       .lte('sale_date', endDate);
 
     // Query 2: vast_finance_applications (Form data)
-    let vastQuery = supabase
+    const vastQuery = supabase
       .from('vast_finance_applications')
       .select(`
         status_pengajuan,
@@ -270,7 +270,7 @@ export default function RekapPage() {
     const allPromoterIds = (allPromotersData || []).map((p: any) => p.id);
     
     // Fetch targets from targets table
-    let targetMap: Record<string, number> = {};
+    const targetMap: Record<string, number> = {};
     if (allPromoterIds.length > 0) {
       const { data: targetsData } = await supabase
         .from('targets')

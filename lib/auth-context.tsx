@@ -12,18 +12,20 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  profileError: string | null;
   debugInfo: string[];
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  profileError: null,
   debugInfo: [],
   signOut: async () => {},
-  refreshProfile: async () => {},
+  refreshProfile: async () => null,
 });
 
 // Helper to clear all auth-related storage
@@ -53,41 +55,31 @@ const clearAllAuthStorage = () => {
   }
 };
 
-// Helper to unregister service worker on critical errors
-const unregisterServiceWorker = async () => {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-
-  try {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const registration of registrations) {
-      await registration.unregister();
-    }
-    console.log('Service worker unregistered');
-  } catch (error) {
-    console.error('Failed to unregister service worker:', error);
-  }
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   const fetchProfile = async (userId: string) => {
     try {
       const userProfile = await getUserProfile(userId);
       setProfile(userProfile);
+      setProfileError(userProfile ? null : 'Profil tidak ditemukan untuk user ini.');
       return userProfile;
     } catch {
+      setProfileError('Gagal memuat profil pengguna.');
       return null;
     }
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id);
-    }
+    if (!user) return null;
+    setLoading(true);
+    const result = await fetchProfile(user.id);
+    setLoading(false);
+    return result;
   };
 
   useEffect(() => {
@@ -155,10 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isMounted) {
             if (userProfile) {
               setProfile(userProfile);
+              setProfileError(null);
               addDebug('[Auth] ✅ COMPLETE');
             } else {
               addDebug('[Auth] ❌ Profile NULL!');
               addDebug('[Auth] CHECK: 1) User exists in user_profiles? 2) ID match?');
+              setProfileError('Profil tidak berhasil dimuat. Coba lagi atau hubungi admin.');
               // CRITICAL: Set loading=false anyway to prevent infinite loading
               setLoading(false);
               return; // Stop here, don't set loading=false again below
@@ -166,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           addDebug(`[Auth] Profile error: ${error}`);
+          setProfileError('Terjadi error saat memuat profil.');
         }
 
         if (isMounted) {
@@ -191,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_OUT' || !session?.user) {
           setUser(null);
           setProfile(null);
+          setProfileError(null);
           setLoading(false);
           clearAllAuthStorage();
           return;
@@ -202,10 +198,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userProfile = await getUserProfile(session.user.id);
             if (isMounted) {
               setProfile(userProfile);
+              setProfileError(userProfile ? null : 'Profil tidak ditemukan setelah login.');
               setLoading(false);
             }
           } catch (error) {
             console.error('Failed to fetch profile on auth change:', error);
+            setProfileError('Gagal memuat profil setelah login.');
             if (isMounted) setLoading(false);
           }
         }
@@ -243,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, debugInfo, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, profileError, debugInfo, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

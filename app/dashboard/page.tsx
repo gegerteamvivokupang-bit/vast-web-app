@@ -11,8 +11,6 @@ import { useAuth, getAccessibleAreas } from '@/lib/auth-context';
 import { 
   TrendingUp,
   CheckCircle,
-  Clock,
-  XCircle,
   RefreshCw,
   Calendar,
   Zap,
@@ -21,6 +19,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
+import type { PostgrestFilterBuilder } from '@supabase/supabase-js';
 
 interface PeriodStats {
   total: number;
@@ -37,6 +36,37 @@ interface TodayActivity {
   store: string;
   time: string;
   source: 'sales' | 'vast';
+}
+
+type SalesStatus = 'ACC' | 'Pending' | 'Reject';
+type VastStatus = 'ACC' | 'Belum disetujui' | 'Dapat limit tapi belum proses';
+
+interface SalesWithDetailsRow {
+  id: string;
+  status: SalesStatus;
+  promoter_name: string | null;
+  store_name: string | null;
+  area_detail: string | null;
+  created_at: string;
+}
+
+interface VastStore {
+  name: string | null;
+  area_detail: string | null;
+}
+
+interface VastApplicationRow {
+  id: string;
+  status_pengajuan: VastStatus;
+  promoter_name: string | null;
+  customer_name: string | null;
+  stores: VastStore | null;
+  sale_date: string | null;
+  created_at: string;
+}
+
+interface TargetRow {
+  target_value: number | null;
 }
 
 export default function DashboardPage() {
@@ -65,7 +95,6 @@ export default function DashboardPage() {
     try {
       // Get promoter names and IDs for sator role
       let promoterNames: string[] = [];
-      let promoterIds: string[] = [];
       
       if (profile.role === 'sator' && profile.sator_name) {
         const { data: promoters } = await supabase
@@ -73,11 +102,10 @@ export default function DashboardPage() {
           .select('id, name')
           .eq('sator', profile.sator_name);
         promoterNames = promoters?.map(p => p.name) || [];
-        promoterIds = promoters?.map(p => p.id) || [];
       }
 
       // Build base query filters
-      const buildFilters = (query: any) => {
+      const buildFilters = (query: PostgrestFilterBuilder<Record<string, unknown>>) => {
         if (profile.role === 'spv_area' && profile.area && profile.area !== 'ALL') {
           return query.eq('area_detail', profile.area);
         } else if (profile.role === 'sator' && promoterNames.length > 0) {
@@ -133,20 +161,20 @@ export default function DashboardPage() {
       ]);
 
       // Filter vast data by access
-      const filterVast = (data: any[]) => {
+      const filterVast = (data: VastApplicationRow[]) => {
         if (!data) return [];
         if (profile.role === 'super_admin' || profile.role === 'manager_area') return data;
         if (profile.role === 'spv_area' && profile.area && profile.area !== 'ALL') {
-          return data.filter(v => (v.stores as any)?.area_detail === profile.area);
+          return data.filter(v => v.stores?.area_detail === profile.area);
         }
         if (profile.role === 'sator' && promoterNames.length > 0) {
           return data.filter(v => promoterNames.includes(v.promoter_name));
         }
-        return data.filter(v => accessibleAreas.includes((v.stores as any)?.area_detail));
+        return data.filter(v => accessibleAreas.includes(v.stores?.area_detail || ''));
       };
 
       // Calculate stats
-      const calcStats = (sales: any[], vast: any[]): PeriodStats => {
+      const calcStats = (sales: SalesWithDetailsRow[], vast: VastApplicationRow[]): PeriodStats => {
         const salesClosing = sales.filter(s => s.status === 'ACC').length;
         const salesPending = sales.filter(s => s.status === 'Pending').length;
         const salesReject = sales.filter(s => s.status === 'Reject').length;
@@ -163,23 +191,23 @@ export default function DashboardPage() {
         };
       };
 
-      const filteredVastToday = filterVast(vastTodayResult.data || []);
-      const filteredVastMonth = filterVast(vastMonthResult.data || []);
+      const filteredVastToday = filterVast((vastTodayResult.data || []) as VastApplicationRow[]);
+      const filteredVastMonth = filterVast((vastMonthResult.data || []) as VastApplicationRow[]);
 
-      setTodayStats(calcStats(salesTodayResult.data || [], filteredVastToday));
-      setMonthStats(calcStats(salesMonthResult.data || [], filteredVastMonth));
+      setTodayStats(calcStats((salesTodayResult.data || []) as SalesWithDetailsRow[], filteredVastToday));
+      setMonthStats(calcStats((salesMonthResult.data || []) as SalesWithDetailsRow[], filteredVastMonth));
 
       // Calculate total target
-      const totalTarget = (targetResult.data || []).reduce((sum: number, t: any) => sum + (t.target_value || 0), 0);
+      const totalTarget = (targetResult.data || []).reduce((sum: number, t: TargetRow) => sum + (t.target_value || 0), 0);
       setMonthTarget(totalTarget);
 
       // Today's activities with WITA time
-      const salesActivities: TodayActivity[] = (todaySalesDetailResult.data || []).map((s: any) => {
+      const salesActivities: TodayActivity[] = ((todaySalesDetailResult.data || []) as SalesWithDetailsRow[]).map((s) => {
         const createdAt = new Date(s.created_at);
         const witaTime = new Date(createdAt.getTime() + (8 * 60 * 60 * 1000)); // UTC+8
         return {
           id: s.id,
-          name: s.promoter_name, // Use promoter name as identifier since customer_name not in view
+          name: s.promoter_name || '-', // Use promoter name as identifier since customer_name not in view
           status: s.status,
           promoter: s.promoter_name || '-',
           store: s.store_name || '-',
@@ -188,16 +216,16 @@ export default function DashboardPage() {
         };
       });
 
-      const filteredVastDetail = filterVast(todayVastDetailResult.data || []);
-      const vastActivities: TodayActivity[] = filteredVastDetail.map((v: any) => {
+      const filteredVastDetail = filterVast((todayVastDetailResult.data || []) as VastApplicationRow[]);
+      const vastActivities: TodayActivity[] = filteredVastDetail.map((v) => {
         const createdAt = new Date(v.created_at);
         const witaTime = new Date(createdAt.getTime() + (8 * 60 * 60 * 1000)); // UTC+8
         return {
           id: v.id,
-          name: v.customer_name,
+          name: v.customer_name || '-',
           status: v.status_pengajuan,
           promoter: v.promoter_name || '-',
-          store: (v.stores as any)?.name || '-',
+          store: v.stores?.name || '-',
           time: witaTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA',
           source: 'vast' as const,
         };

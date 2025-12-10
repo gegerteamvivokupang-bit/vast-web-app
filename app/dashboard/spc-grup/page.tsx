@@ -109,7 +109,7 @@ export default function SPCGrupPage() {
     if (!profile) return;
 
     // Query 1: sales_with_details (Excel data) - filter for SPC stores
-    let salesQuery = supabase
+    const salesQuery = supabase
       .from('sales_with_details')
       .select('id, sale_date, promoter_name, status, phone_type, store_name, area_detail, sator')
       .gte('sale_date', fromDate)
@@ -119,7 +119,7 @@ export default function SPCGrupPage() {
       .limit(1000);
 
     // Query 2: vast_finance_applications (Form data) - filter for SPC stores
-    let vastQuery = supabase
+    const vastQuery = supabase
       .from('vast_finance_applications')
       .select(`
         id,
@@ -618,7 +618,7 @@ export default function SPCGrupPage() {
           </div>
           {sales.length === 0 ? (
             <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
-              Tidak ada data untuk periode yang dipilih. Klik "Cari Data" atau ubah filter periode.
+              Tidak ada data untuk periode yang dipilih. Klik “Cari Data” atau ubah filter periode.
             </div>
           ) : (
             <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap">
@@ -647,7 +647,7 @@ export default function SPCGrupPage() {
 
         {promoterStats.length === 0 ? (
           <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
-            Tidak ada data untuk bulan yang dipilih. Klik "Cari Data" untuk memuat data.
+            Tidak ada data untuk bulan yang dipilih. Klik “Cari Data” untuk memuat data.
           </div>
         ) : (
           <>

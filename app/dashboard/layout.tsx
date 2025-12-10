@@ -30,11 +30,12 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, debugInfo, signOut } = useAuth();
+  const { user, profile, loading, profileError, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [retryingProfile, setRetryingProfile] = useState(false);
 
   // Redirect handled by middleware, but also check here for client-side navigation
   useEffect(() => {
@@ -52,12 +53,44 @@ export default function DashboardLayout({
     }
   };
 
-  if (loading || !user || !profile) {
+  const handleRetryProfile = async () => {
+    if (retryingProfile) return;
+    setRetryingProfile(true);
+    try {
+      await refreshProfile();
+    } finally {
+      setRetryingProfile(false);
+    }
+  };
+
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full text-center space-y-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+          <h2 className="text-lg font-semibold text-gray-900">Profil belum siap</h2>
+          <p className="text-sm text-gray-600">
+            {profileError || 'Profil pengguna belum berhasil dimuat. Coba lagi atau logout.'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={handleRetryProfile} disabled={retryingProfile}>
+              {retryingProfile ? 'Memuat ulang...' : 'Coba lagi'}
+            </Button>
+            <Button variant="outline" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
     );

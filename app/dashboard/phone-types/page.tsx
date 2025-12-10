@@ -72,12 +72,13 @@ export default function PhoneTypesManagementPage() {
       setShowAddForm(false);
       fetchPhoneTypes();
       alert('Tipe HP berhasil ditambahkan');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding phone type:', error);
-      if (error.code === '23505') {
+      const err = error as { code?: string; message?: string };
+      if (err.code === '23505') {
         alert('Tipe HP dengan nama ini sudah ada');
       } else {
-        alert('Gagal menambahkan tipe HP: ' + error.message);
+        alert('Gagal menambahkan tipe HP: ' + (err.message || 'Unknown error'));
       }
     } finally {
       setSubmitting(false);
@@ -103,12 +104,13 @@ export default function PhoneTypesManagementPage() {
       setEditTypeName('');
       fetchPhoneTypes();
       alert('Tipe HP berhasil diupdate');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating phone type:', error);
-      if (error.code === '23505') {
+      const err = error as { code?: string; message?: string };
+      if (err.code === '23505') {
         alert('Tipe HP dengan nama ini sudah ada');
       } else {
-        alert('Gagal mengupdate tipe HP: ' + error.message);
+        alert('Gagal mengupdate tipe HP: ' + (err.message || 'Unknown error'));
       }
     } finally {
       setSubmitting(false);
@@ -126,9 +128,10 @@ export default function PhoneTypesManagementPage() {
       if (error) throw error;
 
       fetchPhoneTypes();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error toggling phone type status:', error);
-      alert('Gagal mengubah status: ' + error.message);
+      const err = error as { message?: string };
+      alert('Gagal mengubah status: ' + (err.message || 'Unknown error'));
     } finally {
       setSubmitting(false);
     }
@@ -151,9 +154,10 @@ export default function PhoneTypesManagementPage() {
 
       fetchPhoneTypes();
       alert('Tipe HP berhasil dinonaktifkan');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting phone type:', error);
-      alert('Gagal menghapus tipe HP: ' + error.message);
+      const err = error as { message?: string };
+      alert('Gagal menghapus tipe HP: ' + (err.message || 'Unknown error'));
     } finally {
       setSubmitting(false);
     }
@@ -259,7 +263,7 @@ export default function PhoneTypesManagementPage() {
           <div className="p-8 text-center text-gray-500">
             <Smartphone size={48} className="mx-auto mb-3 text-gray-300" />
             <p>Belum ada tipe HP yang ditambahkan</p>
-            <p className="text-sm mt-1">Klik tombol "Tambah Tipe HP" untuk menambahkan</p>
+            <p className="text-sm mt-1">Klik tombol “Tambah Tipe HP” untuk menambahkan</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">

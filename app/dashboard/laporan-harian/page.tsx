@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth, getAccessibleAreas } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,36 @@ interface Promoter {
   store_name?: string;
 }
 
+type SalesStatus = 'ACC' | 'Pending' | 'Reject';
+type VastStatus = 'ACC' | 'Belum disetujui' | 'Dapat limit tapi belum proses';
+
+interface VastStoreRow {
+  name: string | null;
+  area_detail: string | null;
+}
+
+interface VastPromoterRow {
+  sator: string | null;
+}
+
+interface VastApplicationRow {
+  id: string;
+  customer_name: string | null;
+  status_pengajuan: VastStatus;
+  promoter_name: string | null;
+  store_id: string | null;
+  sale_date: string | null;
+  stores: VastStoreRow | null;
+  promoters: VastPromoterRow | null;
+}
+
+interface PromoterRow {
+  id: string;
+  name: string;
+  sator: string;
+  stores: VastStoreRow | null;
+}
+
 export default function LaporanHarianPage() {
   const { profile } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
@@ -41,7 +71,7 @@ export default function LaporanHarianPage() {
   const [toDate, setToDate] = useState<string>(formatDateForInput(new Date()));
 
   // Get accessible areas for this user
-  const accessibleAreas = profile ? getAccessibleAreas(profile) : [];
+  const accessibleAreas = useMemo(() => (profile ? getAccessibleAreas(profile) : []), [profile]);
 
   // Track if initial setup is done
   const [initialized, setInitialized] = useState(false);
@@ -69,7 +99,8 @@ export default function LaporanHarianPage() {
         .not('sator', 'is', null)
         .then(({ data }) => {
           if (data) {
-            const uniqueSators = Array.from(new Set(data.map((d: any) => d.sator))).sort();
+            const uniqueSators = Array.from(new Set(data.map((d) => d.sator).filter(Boolean))) as string[];
+            uniqueSators.sort();
             setAvailableSators(uniqueSators);
           }
         });
@@ -96,9 +127,9 @@ export default function LaporanHarianPage() {
     }, 100); // Small debounce to batch state changes
     
     return () => clearTimeout(timer);
-  }, [profile, initialized, area, sator, fromDate, toDate]);
+  }, [profile, initialized, area, sator, fromDate, toDate, fetchSales]);
 
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async () => {
     if (!profile) return;
 
     setLoading(true);
@@ -114,7 +145,7 @@ export default function LaporanHarianPage() {
       .limit(500);
 
     // Query 2: vast_finance_applications (Form data)
-    let vastQuery = supabase
+    const vastQuery = supabase
       .from('vast_finance_applications')
       .select(`
         id,
@@ -198,9 +229,9 @@ export default function LaporanHarianPage() {
     }
 
     // Transform vast data to match Sale interface
-    const vastSales: Sale[] = (vastResult.data || []).map((v: any) => {
-      const storeData = v.stores as { name: string; area_detail: string } | null;
-      const promoterData = v.promoters as { sator: string } | null;
+    const vastSales: Sale[] = (vastResult.data || []).map((v: VastApplicationRow) => {
+      const storeData = v.stores;
+      const promoterData = v.promoters;
       
       // Map status
       const status = v.status_pengajuan === 'ACC' ? 'ACC'
@@ -261,30 +292,30 @@ export default function LaporanHarianPage() {
 
     // Process promoters data (already fetched in parallel)
     if (promotersResult.data) {
-      let filtered = promotersResult.data;
+      let filtered = promotersResult.data as PromoterRow[];
       
       // Filter by area for SPV
       if (profile.role === 'spv_area' && profile.area !== 'ALL') {
-        filtered = filtered.filter((p: any) => {
-          const storeInfo = p.stores as { name: string; area_detail: string } | null;
-          return storeInfo && storeInfo.area_detail === profile.area;
+        filtered = filtered.filter((p) => {
+          const storeInfo = p.stores;
+          return storeInfo?.area_detail === profile.area;
         });
       }
       
       // Filter by accessible areas for non-admin roles
       if (profile.role !== 'super_admin' && profile.role !== 'manager_area' && profile.role !== 'spv_area') {
-        filtered = filtered.filter((p: any) => {
-          const storeInfo = p.stores as { name: string; area_detail: string } | null;
+        filtered = filtered.filter((p) => {
+          const storeInfo = p.stores;
           return storeInfo && accessibleAreas.includes(storeInfo.area_detail || '');
         });
       }
       
       // Apply sator filter if selected
       if (sator !== 'all' && sator !== 'own') {
-        filtered = filtered.filter((p: any) => p.sator === sator);
+        filtered = filtered.filter((p) => p.sator === sator);
       }
       
-      const mapped = filtered.map((p: any) => ({
+      const mapped = filtered.map((p) => ({
         id: p.id,
         name: p.name,
         sator: p.sator,
@@ -297,7 +328,7 @@ export default function LaporanHarianPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessibleAreas, area, fromDate, profile, sator, toDate]);
 
   const getFirstName = (fullName: string) => {
     return fullName.split(' ')[0];
@@ -462,11 +493,6 @@ export default function LaporanHarianPage() {
   const dapatLimit = acc + pending;
 
   const stats = { total, dapatLimit, closing: acc, pending, reject };
-
-  const dapatLimitRate = stats.total > 0 ? ((stats.dapatLimit / stats.total) * 100).toFixed(1) : '0';
-  const closingRate = stats.total > 0 ? ((stats.closing / stats.total) * 100).toFixed(1) : '0';
-  const pendingRate = stats.total > 0 ? ((stats.pending / stats.total) * 100).toFixed(1) : '0';
-  const rejectRate = stats.total > 0 ? ((stats.reject / stats.total) * 100).toFixed(1) : '0';
 
   const exportToExcel = () => {
     if (sales.length === 0) {

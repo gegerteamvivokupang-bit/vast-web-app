@@ -52,7 +52,7 @@ export default function VastFinanceDashboardPage() {
     setLoading(true);
     try {
       // Build query
-      let query = supabase
+      const query = supabase
         .from('vast_finance_applications')
         .select(
           `
