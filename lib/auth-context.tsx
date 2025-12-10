@@ -92,8 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let isInitializing = false; // GUARD FLAG to prevent race condition
 
     const initializeAuth = async () => {
+      // Prevent multiple concurrent initializations
+      if (isInitializing) {
+        console.log('[Auth] Already initializing, skipping...');
+        return;
+      }
+      isInitializing = true;
       const addDebug = (msg: string) => {
         console.log(msg);
         setDebugInfo(prev => [...prev, msg]);
@@ -131,14 +138,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
           addDebug('[Auth] Fetching profile...');
-          const userProfile = await getUserProfile(session.user.id);
+          addDebug(`[Auth] User ID: ${session.user.id.substring(0, 12)}...`);
+
+          // Add timeout to prevent infinite loading
+          const profilePromise = getUserProfile(session.user.id);
+          const timeoutPromise = new Promise<null>((resolve) =>
+            setTimeout(() => {
+              addDebug('[Auth] ⏱️ Profile timeout!');
+              resolve(null);
+            }, 5000)
+          );
+
+          const userProfile = await Promise.race([profilePromise, timeoutPromise]);
           addDebug(`[Auth] Profile: ${userProfile ? 'SUCCESS' : 'NULL'}`);
 
-          if (isMounted && userProfile) {
-            setProfile(userProfile);
-            addDebug('[Auth] ✅ COMPLETE');
-          } else if (!userProfile) {
-            addDebug('[Auth] ❌ Profile NULL!');
+          if (isMounted) {
+            if (userProfile) {
+              setProfile(userProfile);
+              addDebug('[Auth] ✅ COMPLETE');
+            } else {
+              addDebug('[Auth] ❌ Profile NULL!');
+              addDebug('[Auth] CHECK: 1) User exists in user_profiles? 2) ID match?');
+              // CRITICAL: Set loading=false anyway to prevent infinite loading
+              setLoading(false);
+              return; // Stop here, don't set loading=false again below
+            }
           }
         } catch (error) {
           addDebug(`[Auth] Profile error: ${error}`);
@@ -190,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
+      isInitializing = false; // Reset flag on cleanup
       subscription.unsubscribe();
     };
   }, []);

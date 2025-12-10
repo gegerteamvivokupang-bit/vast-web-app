@@ -136,8 +136,21 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     .single();
 
   if (error) {
+    console.error('[getUserProfile] Error fetching profile:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      userId: userId
+    });
     return null;
   }
 
+  if (!data) {
+    console.warn('[getUserProfile] No profile found for user:', userId);
+    return null;
+  }
+
+  console.log('[getUserProfile] Profile loaded successfully:', data.email);
   return data;
 }
