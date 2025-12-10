@@ -12,6 +12,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  debugInfo: string[];
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  debugInfo: [],
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -91,63 +94,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const initializeAuth = async () => {
-      console.log('[Auth] Starting auth initialization...');
+      const addDebug = (msg: string) => {
+        console.log(msg);
+        setDebugInfo(prev => [...prev, msg]);
+      };
+
+      addDebug('[Auth] Starting...');
       try {
-        // Get current session from Supabase - NO timeout, NO race conditions
-        // Trust Supabase's built-in session management
-        console.log('[Auth] Fetching session from Supabase...');
+        addDebug('[Auth] Fetching session from Supabase...');
         const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('[Auth] Session fetched:', session ? 'exists' : 'none', error ? `error: ${error.message}` : '');
+        addDebug(`[Auth] Session: ${session ? 'EXISTS' : 'NONE'}`);
 
         if (!isMounted) {
-          console.log('[Auth] Component unmounted, aborting');
+          addDebug('[Auth] Component unmounted');
           return;
         }
 
-        // Only handle actual Supabase errors
         if (error) {
-          console.error('[Auth] Supabase session error:', error);
+          addDebug(`[Auth] ERROR: ${error.message}`);
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
-        // No session = not logged in (this is normal, not an error)
         if (!session?.user) {
-          console.log('[Auth] No session found, user not logged in');
+          addDebug('[Auth] No session, not logged in');
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
-        // Valid session found - set user immediately
-        console.log('[Auth] Valid session found for user:', session.user.id);
+        addDebug(`[Auth] User found: ${session.user.id.substring(0, 8)}...`);
         setUser(session.user);
 
-        // Fetch user profile (no timeout racing)
         try {
-          console.log('[Auth] Fetching user profile...');
+          addDebug('[Auth] Fetching profile...');
           const userProfile = await getUserProfile(session.user.id);
-          console.log('[Auth] Profile fetched:', userProfile ? 'success' : 'null');
+          addDebug(`[Auth] Profile: ${userProfile ? 'SUCCESS' : 'NULL'}`);
+
           if (isMounted && userProfile) {
             setProfile(userProfile);
+            addDebug('[Auth] ✅ COMPLETE');
           } else if (!userProfile) {
-            console.error('[Auth] Profile is null - user may not exist in user_profiles table');
+            addDebug('[Auth] ❌ Profile NULL!');
           }
         } catch (error) {
-          console.error('[Auth] Failed to fetch profile:', error);
-          // Don't logout on profile fetch error - user is still authenticated
+          addDebug(`[Auth] Profile error: ${error}`);
         }
 
         if (isMounted) {
-          console.log('[Auth] Auth initialization complete, setting loading=false');
           setLoading(false);
         }
       } catch (error) {
-        console.error('[Auth] Auth initialization failed:', error);
-        // Don't clear session on unexpected errors - let Supabase handle it
+        addDebug(`[Auth] FATAL: ${error}`);
         if (isMounted) {
           setLoading(false);
         }
@@ -217,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, debugInfo, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
